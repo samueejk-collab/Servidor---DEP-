@@ -1,5 +1,6 @@
-from flask import Flask, request
+from flask import Flask, request, jsonify
 import sqlite3
+
 app = Flask(__name__)
 
 ARCHIVO_BD="sensores.db"
@@ -17,16 +18,32 @@ def  make_dicts(cursor, row):
 def lecturas():
     db = sqlite3.connect(ARCHIVO_BD)
     db.row_factory = make_dicts
-    db.close()
+    resultado = []
+    try:
+        cursor = db.execute("""SELECT id, nombre, valor,
+                            datetime(fecha_hora, '-3 hours') 
+                            AS fecha_hora 
+                            FROM lecturas;""")
+        resultado = cursor.fetchall()
+    finally:
+        db.close()
+             
+    return jsonify(resultado)
 
 @app.route('/api/sensor', methods=['POST'])
-def recibir_valores():
+def recibir_datos():
     datos = request.json
-    nombres = datos['nombres']
+    nombre = datos['nombre']
     valor = datos['valor']
-
-    print(f'Mensaje recibido de {request.remote_addr}')
-    print(f'Enviado por {nombres}')
-    print(f'Valor del sensor: {valor}')
-
+    
+    db = sqlite3.connect(ARCHIVO_BD)
+    db.row_factory = make_dicts
+    try:
+        db.execute("""INSERT INTO lecturas(nombre,valor) 
+                   VALUES (?, ?);""",(nombre, valor)) #esto por si acaso el usuario ponga algo en riego la bsae de datos       
+        db.commit()    #segurida pa q n pingan lo q deseen
+    finally:
+        db.close()
+         
+    
     return 'OK'
